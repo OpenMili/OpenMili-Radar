@@ -1,0 +1,426 @@
+// Package catalog lists ordinary public webpage probes from OpenMili's coverage checklist.
+// A configured URL is a webpage entry point, not evidence that all business functions work.
+package catalog
+
+// Probe describes one checklist item. An empty URL means no HTTP webpage probe is configured.
+// ExpectedTitle contains alternative case-insensitive title fragments; a status code alone
+// must never be used as a successful page verdict.
+type Probe struct {
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Category      string   `json:"category"`
+	URL           string   `json:"url"`
+	ExpectedTitle []string `json:"expected_title,omitempty"`
+	Default       bool     `json:"default"`
+}
+
+type group struct {
+	name   string
+	probes []Probe
+}
+
+// All returns the 319 listed industry items in their documented order.
+// Items requiring a configured endpoint remain present with URL == "".
+// Callers may safely customize the returned slice, including its title rules.
+func All() []Probe {
+	var result []Probe
+	for _, category := range groups {
+		for _, probe := range category.probes {
+			probe.Category = category.name
+			probe.ExpectedTitle = append([]string(nil), probe.ExpectedTitle...)
+			result = append(result, probe)
+		}
+	}
+	return result
+}
+
+// Default returns the small, configured set used by the quick summary.
+func Default() []Probe {
+	var result []Probe
+	for _, probe := range All() {
+		if probe.Default {
+			result = append(result, probe)
+		}
+	}
+	return result
+}
+
+// Categories returns the 15 checklist categories in their presentation order.
+func Categories() []string {
+	result := make([]string, 0, len(groups))
+	for _, category := range groups {
+		result = append(result, category.name)
+	}
+	return result
+}
+
+func page(id, name, url string, titles ...string) Probe {
+	return Probe{ID: id, Name: name, URL: url, ExpectedTitle: titles, Default: defaults[id]}
+}
+
+var defaults = map[string]bool{
+	"ai-chatgpt": true, "ai-claude": true, "ai-gemini": true,
+	"ai-deepseek": true, "ai-huggingface": true,
+	"cloud-aws":        true,
+	"academic-scholar": true, "academic-arxiv": true,
+	"academic-pubmed": true, "academic-ieee": true,
+	"search-google": true, "search-wikipedia": true,
+	"media-netflix": true, "media-youtube": true, "media-spotify": true,
+	"dev-github": true, "dev-dockerhub": true, "dev-pypi": true,
+}
+
+// Names and ordering follow the project's public probe checklist.
+// URL/title mappings are independent entries: no upstream scripts, cookies or API calls.
+var groups = []group{
+	{"人工智能与大语言模型", []Probe{
+		page("ai-chatgpt", "开放人工智能 (ChatGPT)", "https://chatgpt.com/", "ChatGPT"),
+		page("ai-claude", "克劳德 (Claude)", "https://claude.ai/", "Claude"),
+		page("ai-gemini", "谷歌双子座 (Gemini)", "https://gemini.google.com/", "Gemini"),
+		page("ai-copilot", "微软副驾驶 (Copilot)", "https://copilot.microsoft.com/", "Copilot"),
+		page("ai-perplexity", "困惑度搜索 (Perplexity)", "https://www.perplexity.ai/", "Perplexity"),
+		page("ai-grok", "格罗克 (Grok)", "https://grok.com/", "Grok"),
+		page("ai-midjourney", "中途旅程 (Midjourney)", "https://www.midjourney.com/", "Midjourney"),
+		page("ai-poe", "坡 (Poe)", "https://poe.com/", "Poe"),
+		page("ai-mistral", "秘境人工智能 (Mistral)", "https://mistral.ai/", "Mistral"),
+		page("ai-deepseek", "深度求索 (DeepSeek)", "https://chat.deepseek.com/", "DeepSeek"),
+		page("ai-kimi", "月之暗面 (Kimi)", "", "Kimi"),
+		page("ai-zhipu", "智谱清言", "", "智谱清言"),
+		page("ai-baichuan", "百川智能", "", "百川"),
+		page("ai-01ai", "零一万物", "", "零一万物", "01.AI"),
+		page("ai-hailuo", "海螺人工智能", "", "海螺", "Hailuo"),
+		page("ai-character", "角色人工智能 (Character.ai)", "https://character.ai/", "Character"),
+		page("ai-huggingface", "抱抱脸社区 (Hugging Face)", "https://huggingface.co/", "Hugging Face"),
+		page("ai-runway", "跑道工具 (Runway)", "https://runwayml.com/", "Runway"),
+		page("ai-suno", "苏诺音乐 (Suno)", "https://suno.com/", "Suno"),
+		page("ai-udio", "优迪欧音乐 (Udio)", "https://www.udio.com/", "Udio"),
+		page("ai-elevenlabs", "十一实验室 (ElevenLabs)", "https://elevenlabs.io/", "ElevenLabs"),
+		page("ai-stability", "稳定人工智能 (Stability AI)", "https://stability.ai/", "Stability"),
+		page("ai-leonardo", "达芬奇绘图 (Leonardo.ai)", "https://leonardo.ai/", "Leonardo"),
+		page("ai-jasper", "贾斯珀写作 (Jasper)", "https://www.jasper.ai/", "Jasper"),
+		page("ai-copy", "复制写作 (Copy.ai)", "https://www.copy.ai/", "Copy.ai"),
+		page("ai-cursor", "游标编辑器 (Cursor)", "https://cursor.com/", "Cursor"),
+		page("ai-github-copilot", "微软代码副驾驶 (GitHub Copilot)", "https://github.com/features/copilot", "Copilot"),
+		page("ai-replit", "瑞普利特 (Replit Agent)", "https://replit.com/", "Replit"),
+		page("ai-notion", "诺欣人工智能 (Notion AI)", "https://www.notion.so/product/ai", "Notion"),
+		page("ai-cohere", "凝聚人工智能 (Cohere)", "https://cohere.com/", "Cohere"),
+	}},
+	{"核心安全防御与风控网关", []Probe{
+		page("security-google", "谷歌核心搜索引擎", "https://www.google.com/", "Google"),
+		// A vendor name does not identify a protected test page. Do not invent one.
+		page("security-cloudflare", "云闪防御盾牌 (Cloudflare WAF)", ""),
+		page("security-akamai", "阿卡迈边缘安全盾 (Akamai)", ""),
+		page("security-fastly", "快速内容分发盾 (Fastly)", ""),
+		page("security-datadome", "数据圆顶反爬盾 (DataDome)", ""),
+		page("security-cloudfront", "亚马逊云前沿盾 (AWS CloudFront)", ""),
+	}},
+	{"云计算与基础架构服务", []Probe{
+		page("cloud-aws", "亚马逊云科技 (AWS)", "https://aws.amazon.com/", "Amazon Web Services", "AWS"),
+		page("cloud-gcp", "谷歌云平台 (Google Cloud GCP)", "https://cloud.google.com/", "Google Cloud"),
+		page("cloud-azure", "微软云平台 (Microsoft Azure)", "https://azure.microsoft.com/", "Azure"),
+		page("cloud-oracle", "甲骨文云平台 (Oracle Cloud OCI)", "https://www.oracle.com/cloud/", "Oracle"),
+		page("cloud-ibm", "国际商业机器云 (IBM Cloud)", "https://www.ibm.com/cloud", "IBM"),
+		page("cloud-digitalocean", "数码海洋 (DigitalOcean)", "https://www.digitalocean.com/", "DigitalOcean"),
+		page("cloud-vultr", "拂尔特 (Vultr)", "https://www.vultr.com/", "Vultr"),
+		page("cloud-linode", "莱诺德 (Linode)", "https://www.linode.com/", "Linode", "Akamai"),
+		page("cloud-hetzner", "赫兹纳 (Hetzner)", "https://www.hetzner.com/", "Hetzner"),
+		page("cloud-ovh", "法国高防云 (OVHcloud)", "https://www.ovhcloud.com/", "OVHcloud"),
+		page("cloud-scaleway", "斯凯勒威 (Scaleway)", "https://www.scaleway.com/", "Scaleway"),
+		page("cloud-netcup", "德国网杯 (Netcup)", "https://www.netcup.com/", "netcup"),
+		page("cloud-racknerd", "机架书呆子 (RackNerd)", "https://www.racknerd.com/", "RackNerd"),
+		page("cloud-alibaba", "阿里云 (Alibaba Cloud)", "https://www.alibabacloud.com/", "Alibaba Cloud"),
+		page("cloud-tencent", "腾讯云 (Tencent Cloud)", "https://cloud.tencent.com/", "腾讯云"),
+		page("cloud-huawei", "华为云 (Huawei Cloud)", "https://www.huaweicloud.com/", "华为云", "Huawei Cloud"),
+		page("cloud-volcengine", "火山引擎 (Volcengine)", "https://www.volcengine.com/", "火山引擎", "Volcengine"),
+		page("cloud-baidu", "百度智能云 (Baidu Cloud)", "https://cloud.baidu.com/", "百度智能云"),
+		page("cloud-ctyun", "中国电信天翼云 (CTYun)", "https://www.ctyun.cn/", "天翼云"),
+		page("cloud-cmcc", "中国移动云 (CMCC Cloud)", "", "移动云"),
+	}},
+	{"学术科研文献与顶尖高校", []Probe{
+		page("academic-scholar", "谷歌学术", "https://scholar.google.com/", "Google Scholar", "Google 学术"),
+		page("academic-arxiv", "预印本文献库 (arXiv)", "https://arxiv.org/", "arXiv"),
+		page("academic-pubmed", "国家医学图书馆 (PubMed)", "https://pubmed.ncbi.nlm.nih.gov/", "PubMed"),
+		page("academic-ieee", "电气电子工程师学会 (IEEE Xplore)", "https://ieeexplore.ieee.org/", "IEEE Xplore"),
+		page("academic-sciencedirect", "科学直通期刊库 (ScienceDirect)", "https://www.sciencedirect.com/", "ScienceDirect"),
+		page("academic-springer", "施普林格学术库 (SpringerLink)", "https://link.springer.com/", "Springer"),
+		page("academic-nature", "自然杂志 (Nature)", "https://www.nature.com/", "Nature"),
+		page("academic-science", "科学杂志 (Science)", "https://www.science.org/", "Science"),
+		page("academic-webofscience", "科学引文网 (Web of Science)", "https://www.webofscience.com/", "Web of Science"),
+		page("academic-scopus", "斯高帕斯数据库 (Scopus)", "https://www.scopus.com/", "Scopus"),
+		page("academic-jstor", "积思文献检索 (JSTOR)", "https://www.jstor.org/", "JSTOR"),
+		page("academic-acm", "计算机学会文献库 (ACM)", "https://dl.acm.org/", "ACM"),
+		page("academic-wiley", "威利在线学术库 (Wiley)", "https://onlinelibrary.wiley.com/", "Wiley"),
+		page("academic-researchgate", "研究之门学术社区 (ResearchGate)", "https://www.researchgate.net/", "ResearchGate"),
+		page("academic-scihub", "科学海盗论文库 (Sci-Hub)", ""),
+		page("academic-mdpi", "多学科数字出版库 (MDPI)", "https://www.mdpi.com/", "MDPI"),
+		page("academic-frontiers", "前沿期刊库 (Frontiers)", "https://www.frontiersin.org/", "Frontiers"),
+		page("academic-cnki", "中国知网 (CNKI)", "https://www.cnki.net/", "中国知网", "CNKI"),
+		page("academic-wanfang", "万方数据知识平台", "https://www.wanfangdata.com.cn/", "万方"),
+		page("academic-vip", "维普资讯网", "", "维普"),
+		page("academic-harvard", "哈佛大学", "https://www.harvard.edu/", "Harvard"),
+		page("academic-mit", "麻省理工学院", "https://www.mit.edu/", "MIT -", "MIT –", "Massachusetts Institute"),
+		page("academic-stanford", "斯坦福大学", "https://www.stanford.edu/", "Stanford"),
+		page("academic-berkeley", "加州大学伯克利分校", "https://www.berkeley.edu/", "Berkeley"),
+		page("academic-oxford", "牛津大学", "https://www.ox.ac.uk/", "Oxford"),
+		page("academic-cambridge", "剑桥大学", "https://www.cam.ac.uk/", "Cambridge"),
+		page("academic-imperial", "帝国理工学院", "https://www.imperial.ac.uk/", "Imperial"),
+		page("academic-princeton", "普林斯顿大学", "https://www.princeton.edu/", "Princeton"),
+		page("academic-yale", "耶鲁大学", "https://www.yale.edu/", "Yale"),
+		page("academic-columbia", "哥伦比亚大学", "https://www.columbia.edu/", "Columbia"),
+		page("academic-caltech", "加州理工学院", "https://www.caltech.edu/", "Caltech", "California Institute"),
+		page("academic-chicago", "芝加哥大学", "https://www.uchicago.edu/", "Chicago"),
+		page("academic-ucla", "加州大学洛杉矶分校", "https://www.ucla.edu/", "UCLA"),
+		page("academic-eth", "苏黎世联邦理工学院", "https://ethz.ch/", "ETH Zürich", "ETH Zurich"),
+		page("academic-epfl", "洛桑联邦理工学院", "https://www.epfl.ch/", "EPFL"),
+		page("academic-nus", "新加坡国立大学", "https://www.nus.edu.sg/", "NUS -", "NUS –", "National University of Singapore"),
+		page("academic-ntu", "南洋理工大学", "https://www.ntu.edu.sg/", "NTU", "Nanyang"),
+		page("academic-tokyo", "东京大学", "https://www.u-tokyo.ac.jp/", "東京大学", "Tokyo"),
+		page("academic-kyoto", "京都大学", "https://www.kyoto-u.ac.jp/", "京都大学", "Kyoto"),
+		page("academic-hku", "香港大学", "https://www.hku.hk/", "Hong Kong", "香港大學"),
+		page("academic-hkust", "香港科技大学", "https://hkust.edu.hk/", "HKUST", "Hong Kong University", "香港科技大學"),
+		page("academic-tsinghua", "清华大学", "https://www.tsinghua.edu.cn/", "清华大学", "Tsinghua"),
+		page("academic-pku", "北京大学", "https://www.pku.edu.cn/", "北京大学", "Peking"),
+		page("academic-zju", "浙江大学", "https://www.zju.edu.cn/", "浙江大学", "Zhejiang"),
+		page("academic-fudan", "复旦大学", "https://www.fudan.edu.cn/", "复旦大学", "Fudan"),
+		page("academic-sjtu", "上海交通大学", "https://www.sjtu.edu.cn/", "上海交通大学", "Jiao Tong"),
+		page("academic-toronto", "多伦多大学", "https://www.utoronto.ca/", "Toronto"),
+		page("academic-melbourne", "墨尔本大学", "https://www.unimelb.edu.au/", "Melbourne"),
+		page("academic-sydney", "悉尼大学", "https://www.sydney.edu.au/", "Sydney"),
+		page("academic-tum", "慕尼黑工业大学", "https://www.tum.de/", "TUM -", "TUM –", "Technical University of Munich", "Technische Universität München"),
+	}},
+	{"银行金融与全球在线收单", []Probe{
+		page("bank-icbc", "中国工商银行", "https://www.icbc.com.cn/", "工商银行", "ICBC"),
+		page("bank-ccb", "中国建设银行", "https://www.ccb.com/", "建设银行", "CCB"),
+		page("bank-abchina", "中国农业银行", "https://www.abchina.com/", "农业银行"),
+		page("bank-boc", "中国银行", "https://www.boc.cn/", "中国银行", "Bank of China"),
+		page("bank-bocom", "交通银行", "https://www.bankcomm.com/", "交通银行", "Bank of Communications"),
+		page("bank-cmb", "招商银行", "https://www.cmbchina.com/", "招商银行"),
+		page("bank-psbc", "中国邮政储蓄银行", "https://www.psbc.com/", "邮政储蓄"),
+		page("bank-citic", "中信银行", "https://www.citicbank.com/", "中信银行"),
+		page("bank-spdb", "浦发银行", "https://www.spdb.com.cn/", "浦发银行", "浦东发展银行"),
+		page("bank-cib", "兴业银行", "https://www.cib.com.cn/", "兴业银行"),
+		page("bank-jpmorgan", "摩根大通银行", "https://www.jpmorgan.com/", "J.P. Morgan", "JPMorgan"),
+		page("bank-bofa", "美国银行", "https://www.bankofamerica.com/", "Bank of America"),
+		page("bank-wellsfargo", "富国银行", "https://www.wellsfargo.com/", "Wells Fargo"),
+		page("bank-citi", "花旗银行", "https://www.citi.com/", "Citi"),
+		page("bank-goldmansachs", "高盛集团", "https://www.goldmansachs.com/", "Goldman Sachs"),
+		page("bank-morganstanley", "摩根士丹利", "https://www.morganstanley.com/", "Morgan Stanley"),
+		page("bank-usbank", "合众银行", "https://www.usbank.com/", "U.S. Bank", "US Bank"),
+		page("bank-pnc", "匹兹堡国民银行", "https://www.pnc.com/", "PNC"),
+		page("bank-capitalone", "第一资本金融", "https://www.capitalone.com/", "Capital One"),
+		page("bank-td", "道明银行", "https://www.td.com/", "TD Bank", "TD Canada", "TD Personal"),
+		page("bank-hsbc", "汇丰银行", "https://www.hsbc.com/", "HSBC"),
+		page("bank-barclays", "巴克莱银行", "https://home.barclays/", "Barclays"),
+		page("bank-standardchartered", "渣打银行", "https://www.sc.com/", "Standard Chartered", "渣打"),
+		page("bank-bnpparibas", "法国巴黎银行", "https://group.bnpparibas/", "BNP Paribas"),
+		page("bank-creditagricole", "法国农业信贷银行", "https://www.credit-agricole.com/", "Crédit Agricole", "Credit Agricole"),
+		page("bank-societegenerale", "法国兴业银行", "https://www.societegenerale.com/", "Société Générale", "Societe Generale"),
+		page("bank-deutsche", "德意志银行", "https://www.db.com/", "Deutsche Bank"),
+		page("bank-ubs", "瑞士联合银行", "https://www.ubs.com/", "UBS Group", "UBS Global", "UBS Switzerland", "UBS -", "UBS –"),
+		page("bank-santander", "西班牙桑坦德银行", "https://www.santander.com/", "Santander"),
+		page("bank-bbva", "毕尔巴鄂比斯开银行", "https://www.bbva.com/", "BBVA"),
+		page("bank-ing", "荷兰国际集团", "https://www.ing.com/", "ING global", "ING Bank", "ING.com", "ING -", "ING –"),
+		page("bank-abnamro", "荷兰银行", "https://www.abnamro.com/", "ABN AMRO"),
+		page("bank-intesasanpaolo", "意大利联合圣保罗银行", "https://group.intesasanpaolo.com/", "Intesa Sanpaolo"),
+		page("bank-unicredit", "意大利裕信银行", "https://www.unicreditgroup.eu/", "UniCredit"),
+		page("bank-rbc", "加拿大皇家银行", "https://www.rbc.com/", "RBC", "Royal Bank"),
+		page("bank-scotiabank", "加拿大丰业银行", "https://www.scotiabank.com/", "Scotiabank"),
+		page("bank-bmo", "满地可银行", "https://www.bmo.com/", "BMO"),
+		page("bank-commbank", "澳大利亚联邦银行", "https://www.commbank.com.au/", "CommBank", "Commonwealth Bank"),
+		page("bank-anz", "澳新银行", "https://www.anz.com/", "ANZ"),
+		page("bank-westpac", "西太平洋银行", "https://www.westpac.com.au/", "Westpac"),
+		page("bank-nab", "澳大利亚国民银行", "https://www.nab.com.au/", "NAB", "National Australia Bank"),
+		page("bank-mufg", "三菱日联金融集团", "https://www.mufg.jp/", "三菱UFJ", "MUFG"),
+		page("bank-smfg", "三井住友金融集团", "https://www.smfg.co.jp/", "三井住友", "Sumitomo Mitsui"),
+		page("bank-mizuho", "瑞穗金融集团", "https://www.mizuhogroup.com/", "Mizuho"),
+		page("bank-dbs", "新加坡星展银行", "https://www.dbs.com/", "DBS"),
+		page("bank-ocbc", "新加坡华侨银行", "https://www.ocbc.com/", "OCBC"),
+		page("bank-uob", "新加坡大华银行", "https://www.uob.com.sg/", "UOB"),
+		page("bank-nordea", "北欧联合银行", "https://www.nordea.com/", "Nordea"),
+		page("bank-ireland", "爱尔兰银行", "https://www.bankofireland.com/", "Bank of Ireland"),
+		page("bank-paypal", "贝宝全球支付 (PayPal)", "https://www.paypal.com/", "PayPal"),
+		page("bank-stripe", "条带全球收单 (Stripe)", "https://stripe.com/", "Stripe"),
+	}},
+	{"加密货币交易与区块浏览器", []Probe{
+		page("crypto-binance", "币安交易平台 (Binance)", "https://www.binance.com/", "Binance"),
+		page("crypto-okx", "欧易交易平台 (OKX)", "https://www.okx.com/", "OKX", "欧易"),
+		page("crypto-coinbase", "币基地交易平台 (Coinbase)", "https://www.coinbase.com/", "Coinbase"),
+		page("crypto-bybit", "拜比特交易平台 (Bybit)", "https://www.bybit.com/", "Bybit"),
+		page("crypto-kraken", "海怪交易平台 (Kraken)", "https://www.kraken.com/", "Kraken"),
+		page("crypto-kucoin", "库币交易平台 (KuCoin)", "https://www.kucoin.com/", "KuCoin"),
+		page("crypto-gate", "芝麻开门交易平台 (Gate.io)", "https://www.gate.io/", "Gate"),
+		page("crypto-bitget", "币赢交易平台 (Bitget)", "https://www.bitget.com/", "Bitget"),
+		page("crypto-bitfinex", "碧芬尼克斯平台 (Bitfinex)", "https://www.bitfinex.com/", "Bitfinex"),
+		page("crypto-htx", "火币交易平台 (HTX)", "https://www.htx.com/", "HTX"),
+		page("crypto-gemini", "双子星交易平台 (Gemini)", "https://www.gemini.com/", "Gemini"),
+		page("crypto-com", "加密网平台 (Crypto.com)", "https://crypto.com/", "Crypto.com"),
+		page("crypto-mexc", "抹茶交易平台 (MEXC)", "https://www.mexc.com/", "MEXC"),
+		page("crypto-bitstamp", "币印交易平台 (Bitstamp)", "https://www.bitstamp.net/", "Bitstamp"),
+		page("crypto-deribit", "德瑞比特平台 (Deribit)", "https://www.deribit.com/", "Deribit"),
+		page("crypto-etherscan", "以太坊区块链浏览器 (Etherscan)", "https://etherscan.io/", "Etherscan"),
+		page("crypto-bscscan", "币安智能链浏览器 (BscScan)", "https://bscscan.com/", "BscScan"),
+		page("crypto-blockchain", "区块链数据中心 (Blockchain.com)", "https://www.blockchain.com/", "Blockchain.com"),
+		page("crypto-solscan", "索拉纳浏览器 (Solscan)", "https://solscan.io/", "Solscan"),
+		page("crypto-tronscan", "波场区块链浏览器 (Tronscan)", "https://tronscan.org/", "TRONSCAN"),
+		page("crypto-blockchair", "区块椅通用浏览器 (Blockchair)", "https://blockchair.com/", "Blockchair"),
+		page("crypto-polygonscan", "多边形链浏览器 (Polygonscan)", "https://polygonscan.com/", "Polygon"),
+		page("crypto-arbiscan", "任意链浏览器 (Arbiscan)", "https://arbiscan.io/", "Arbiscan"),
+		page("crypto-optimistic", "乐观链浏览器 (Optimistic Etherscan)", "https://optimistic.etherscan.io/", "Optimism", "Etherscan"),
+		page("crypto-mempool", "比特币内存池观察站 (Mempool.space)", "https://mempool.space/", "mempool"),
+		page("crypto-btc", "比特币中国浏览器 (BTC.com)", ""),
+		page("crypto-basescan", "基地链浏览器 (BaseScan)", "https://basescan.org/", "BaseScan", "Base"),
+		page("crypto-subscan", "波卡生态浏览器 (Subscan)", "https://www.subscan.io/", "Subscan"),
+		page("crypto-tonscan", "开放网络浏览器 (Tonscan)", "https://tonscan.org/", "TON", "Tonscan"),
+		page("crypto-snowtrace", "雪崩链浏览器 (Snowtrace)", "https://snowtrace.io/", "Snowtrace"),
+	}},
+	{"电子商务与跨国在线购物", []Probe{
+		page("commerce-amazon", "亚马逊商城 (Amazon)", "https://www.amazon.com/", "Amazon"),
+		page("commerce-taobao", "淘宝网", "https://www.taobao.com/", "淘宝"),
+		page("commerce-jd", "京东商城", "https://www.jd.com/", "京东", "JD"),
+		page("commerce-pinduoduo", "拼多多商城", "https://www.pinduoduo.com/", "拼多多"),
+		page("commerce-ebay", "易趣网 (eBay)", "https://www.ebay.com/", "eBay"),
+		page("commerce-walmart", "沃尔玛商城 (Walmart)", "https://www.walmart.com/", "Walmart"),
+		page("commerce-shopee", "虾皮跨境商城 (Shopee)", "https://shopee.com/", "Shopee"),
+		page("commerce-lazada", "来赞达电商 (Lazada)", "https://www.lazada.com/", "Lazada"),
+		page("commerce-tokopedia", "印尼电商网 (Tokopedia)", "https://www.tokopedia.com/", "Tokopedia"),
+		page("commerce-gojek", "勾捷客生活网 (Gojek)", "https://www.gojek.com/", "Gojek"),
+		page("commerce-bukalapak", "布卡拉帕克电商 (Bukalapak)", "https://www.bukalapak.com/", "Bukalapak"),
+		page("commerce-traveloka", "旅游乐客出行 (Traveloka)", "https://www.traveloka.com/", "Traveloka"),
+		page("commerce-carousell", "旋转拍卖二手平台 (Carousell)", "https://www.carousell.com/", "Carousell"),
+		page("commerce-blibli", "布利布利商城 (Blibli)", "https://www.blibli.com/", "Blibli"),
+		page("commerce-zalando", "萨兰多时尚电商 (Zalando)", "https://www.zalando.com/", "Zalando"),
+		page("commerce-asos", "阿索斯时尚商城 (ASOS)", "https://www.asos.com/", "ASOS"),
+		page("commerce-allegro", "波兰阿莱格罗电商 (Allegro)", "https://allegro.pl/", "Allegro"),
+		page("commerce-1688", "阿里巴巴采购批发网 (1688)", "https://www.1688.com/", "1688", "阿里巴巴"),
+		page("commerce-meituan", "美团生活服务", "https://www.meituan.com/", "美团"),
+		page("commerce-booking", "缤客全球订房 (Booking.com)", "https://www.booking.com/", "Booking.com"),
+	}},
+	{"搜索引擎与综合网络门户", []Probe{
+		page("search-google", "谷歌搜索引擎 (Google)", "https://www.google.com/", "Google"),
+		page("search-baidu", "百度搜索引擎", "https://www.baidu.com/", "百度"),
+		page("search-bing", "微软必应搜索 (Bing)", "https://www.bing.com/", "Bing", "必应"),
+		page("search-yahoo", "雅虎综合门户 (Yahoo)", "https://www.yahoo.com/", "Yahoo"),
+		page("search-naver", "韩国第一门户 (Naver)", "https://www.naver.com/", "NAVER", "네이버"),
+		page("search-sogou", "搜狗搜索", "https://www.sogou.com/", "搜狗"),
+		page("search-360", "360综合搜索", "https://www.so.com/", "360搜索", "360 Search"),
+		page("search-duckduckgo", "鸭鸭走隐私搜索 (DuckDuckGo)", "https://duckduckgo.com/", "DuckDuckGo"),
+		page("search-yandex", "俄罗斯搜索引擎 (Yandex)", "https://yandex.com/", "Yandex", "Яндекс"),
+		page("search-wikipedia", "维基百科知识库 (Wikipedia)", "https://www.wikipedia.org/", "Wikipedia"),
+	}},
+	{"流媒体视频与正版音乐平台", []Probe{
+		page("media-netflix", "奈飞影视点播 (Netflix)", "https://www.netflix.com/", "Netflix"),
+		page("media-youtube", "油管视频平台 (YouTube)", "https://www.youtube.com/", "YouTube"),
+		page("media-disney", "迪士尼+ 流媒体 (Disney+)", "https://www.disneyplus.com/", "Disney+", "Disney Plus"),
+		page("media-bilibili", "哔哩哔哩弹幕网", "https://www.bilibili.com/", "哔哩哔哩", "bilibili"),
+		page("media-iqiyi", "爱奇艺影视", "https://www.iqiyi.com/", "爱奇艺", "iQIYI"),
+		page("media-youku", "优酷视频", "https://www.youku.com/", "优酷", "Youku"),
+		page("media-spotify", "声网流媒体音乐 (Spotify)", "https://open.spotify.com/", "Spotify"),
+		page("media-applemusic", "苹果音乐 (Apple Music)", "https://music.apple.com/", "Apple Music"),
+		page("media-deezer", "迪泽法国音乐 (Deezer)", "https://www.deezer.com/", "Deezer"),
+		page("media-twitch", "推奇游戏直播 (Twitch)", "https://www.twitch.tv/", "Twitch"),
+		page("media-dmm", "日本数字娱乐 (DMM / FANZA)", ""),
+		page("media-bbc", "英国广播视听 (BBC iPlayer)", "https://www.bbc.co.uk/iplayer", "BBC iPlayer"),
+		page("media-niconico", "日本弹幕视频网 (Niconico)", "https://www.nicovideo.jp/", "ニコニコ", "Niconico"),
+	}},
+	{"社交网络与大众社区平台", []Probe{
+		page("social-x", "推特社交平台 (X / Twitter)", "https://x.com/", "X. It's", "/ X", "Twitter"),
+		page("social-facebook", "脸书社交网络 (Facebook)", "https://www.facebook.com/", "Facebook"),
+		page("social-instagram", "照片墙视觉社交 (Instagram)", "https://www.instagram.com/", "Instagram"),
+		page("social-reddit", "红迪海外社区 (Reddit)", "https://www.reddit.com/", "Reddit"),
+		page("social-weibo", "新浪微博", "https://weibo.com/", "微博", "Weibo"),
+		page("social-wechat", "微信生态", "https://weixin.qq.com/", "微信", "WeChat"),
+		page("social-douyin", "抖音视频", "https://www.douyin.com/", "抖音"),
+		page("social-tiktok", "国际抖音平台 (TikTok)", "https://www.tiktok.com/", "TikTok"),
+		page("social-kuaishou", "快手视频", "https://www.kuaishou.com/", "快手", "Kuaishou"),
+		page("social-xiaohongshu", "小红书生活社区", "https://www.xiaohongshu.com/", "小红书"),
+		page("social-zhihu", "知乎问答社区", "https://www.zhihu.com/", "知乎"),
+		page("social-douban", "豆瓣社区", "https://www.douban.com/", "豆瓣", "Douban"),
+		page("social-tieba", "百度贴吧", "https://tieba.baidu.com/", "百度贴吧", "贴吧"),
+		page("social-pinterest", "品趣创意图片网 (Pinterest)", "https://www.pinterest.com/", "Pinterest"),
+		page("social-quora", "快问问答网 (Quora)", "https://www.quora.com/", "Quora"),
+		page("social-linkedin", "领英职业社交 (LinkedIn)", "https://www.linkedin.com/", "LinkedIn", "领英"),
+	}},
+	{"即时通讯与操作系统推送", []Probe{
+		// A normal webpage cannot verify an individual messaging data center or push service.
+		page("messaging-telegram-dc1", "电报美东数据中心1 (Telegram DC1)", ""),
+		page("messaging-telegram-dc2", "电报荷兰阿姆斯特丹数据中心2 (Telegram DC2)", ""),
+		page("messaging-telegram-dc3", "电报美东数据中心3 (Telegram DC3)", ""),
+		page("messaging-telegram-dc4", "电报欧洲数据中心4 (Telegram DC4)", ""),
+		page("messaging-telegram-dc5", "电报新加坡数据中心5 (Telegram DC5)", ""),
+		page("messaging-whatsapp", "瓦茨艾普即时通信 (WhatsApp)", "https://www.whatsapp.com/", "WhatsApp"),
+		page("messaging-signal", "信号加密通讯 (Signal)", "https://signal.org/", "Signal"),
+		page("messaging-line", "连我即时通信 (Line)", "https://line.me/", "LINE"),
+		page("messaging-discord", "不和谐社区语聊 (Discord)", "https://discord.com/", "Discord"),
+		page("messaging-apns", "苹果系统推送通知服务 (Apple APNs)", ""),
+		page("messaging-fcm", "谷歌安卓系统推送服务 (Google FCM)", ""),
+	}},
+	{"游戏主机与电脑娱乐平台", []Probe{
+		page("gaming-playstation", "索尼电脑娱乐网络 (PlayStation PSN)", "https://www.playstation.com/", "PlayStation"),
+		page("gaming-xbox", "微软游戏网络 (Xbox Live)", "https://www.xbox.com/", "Xbox"),
+		page("gaming-nintendo", "任天堂电子商城 (Nintendo eShop)", "https://www.nintendo.com/", "Nintendo"),
+		page("gaming-steam", "蒸汽游戏平台 (Steam)", "https://store.steampowered.com/", "Steam"),
+		page("gaming-epic", "史诗游戏商城 (Epic Games)", "https://store.epicgames.com/", "Epic Games"),
+		page("gaming-battlenet", "暴雪战网游戏平台 (Battle.net)", "https://www.battle.net/", "Battle.net", "Blizzard"),
+		page("gaming-riot", "拳头游戏网络 (Riot Games)", "https://www.riotgames.com/", "Riot Games"),
+		page("gaming-ea", "艺电游戏平台 (EA App)", "https://www.ea.com/", "Electronic Arts", "EA Games"),
+		page("gaming-ubisoft", "育碧游戏商城 (Ubisoft Connect)", "https://www.ubisoft.com/", "Ubisoft"),
+		page("gaming-rockstar", "摇滚明星游戏平台 (Rockstar Games)", "https://www.rockstargames.com/", "Rockstar Games"),
+		page("gaming-gog", "经典老游戏商城 (GOG.com)", "https://www.gog.com/", "GOG"),
+	}},
+	{"开发者生态与云原生基础设施", []Probe{
+		page("dev-github", "微软代码托管平台 (GitHub)", "https://github.com/", "GitHub"),
+		page("dev-dockerhub", "多克容器镜像仓 (Docker Hub)", "https://hub.docker.com/", "Docker Hub"),
+		page("dev-quay", "码头容器托管仓 (Quay.io)", "https://quay.io/", "Quay"),
+		page("dev-ghcr", "微软容器注册表 (ghcr.io)", ""),
+		page("dev-npm", "节点包管理器 (npm)", "https://www.npmjs.com/", "npm"),
+		page("dev-pypi", "蟒蛇包管理器 (PyPI)", "https://pypi.org/", "PyPI"),
+		page("dev-crates", "铁锈包管理器 (crates.io)", "https://crates.io/", "crates.io"),
+		page("dev-maven", "爪哇中心组件仓 (Maven Central)", "https://central.sonatype.com/", "Maven Central", "Sonatype"),
+		page("dev-goproxy", "围棋语言模块代理 (Go Proxy)", "https://proxy.golang.org/", "Go module"),
+		page("dev-vercel", "韦塞尔前端托管平台 (Vercel)", "https://vercel.com/", "Vercel"),
+		page("dev-netlify", "内特利菲云托管 (Netlify)", "https://www.netlify.com/", "Netlify"),
+		page("dev-supabase", "超级后端数据库 (Supabase)", "https://supabase.com/", "Supabase"),
+		page("dev-workers", "云闪边缘工人函数 (Cloudflare Workers)", "https://workers.cloudflare.com/", "Cloudflare Workers"),
+	}},
+	{"企业远程协同与办公生产力", []Probe{
+		page("office-slack", "斯莱克工作流通信 (Slack)", "https://slack.com/", "Slack"),
+		page("office-teams", "微软团队协作 (Microsoft Teams)", "https://www.microsoft.com/microsoft-teams/", "Microsoft Teams"),
+		page("office-zoom", "视讯网络会议 (Zoom)", "https://zoom.us/", "Zoom"),
+		page("office-webex", "思科网讯视频会议 (Cisco Webex)", "https://www.webex.com/", "Webex"),
+		page("office-notion", "诺欣全能笔记协同 (Notion)", "https://www.notion.so/", "Notion"),
+		page("office-jira", "吉拉研发项目跟踪 (Jira)", "https://www.atlassian.com/software/jira", "Jira"),
+		page("office-confluence", "汇流团队知识库 (Confluence)", "https://www.atlassian.com/software/confluence", "Confluence"),
+		page("office-trello", "特雷洛看板协作 (Trello)", "https://trello.com/", "Trello"),
+		page("office-asana", "阿萨纳团队项目管理 (Asana)", "https://asana.com/", "Asana"),
+		page("office-figma", "菲格玛界面协同设计 (Figma)", "https://www.figma.com/", "Figma"),
+		page("office-canva", "堪瓦平面设计 (Canva)", "https://www.canva.com/", "Canva"),
+		page("office-adobe", "奥多比创意云套件 (Adobe CC)", "https://www.adobe.com/creativecloud.html", "Creative Cloud", "Adobe"),
+		page("office-workspace", "谷歌办公协作套件 (Google Workspace)", "https://workspace.google.com/", "Google Workspace"),
+		page("office-lark", "飞书海外版企业协同 (Lark)", "https://www.larksuite.com/", "Lark"),
+	}},
+	{"国际主流新闻媒体与出版机构", []Probe{
+		page("news-bloomberg", "彭博财经新闻社 (Bloomberg)", "https://www.bloomberg.com/", "Bloomberg"),
+		page("news-wsj", "华尔街日报 (Wall Street Journal)", "https://www.wsj.com/", "Wall Street Journal", "WSJ"),
+		page("news-ft", "金融时报 (Financial Times)", "https://www.ft.com/", "Financial Times"),
+		page("news-reuters", "路透通讯社 (Reuters)", "https://www.reuters.com/", "Reuters"),
+		page("news-ap", "美联通讯社 (Associated Press)", "https://apnews.com/", "AP News", "Associated Press"),
+		page("news-afp", "法新社 (AFP)", "https://www.afp.com/", "AFP"),
+		page("news-aljazeera", "半岛电视台新闻网 (Al Jazeera)", "https://www.aljazeera.com/", "Al Jazeera"),
+		page("news-cnbc", "消费者新闻与商业频道 (CNBC)", "https://www.cnbc.com/", "CNBC"),
+		page("news-forbes", "福布斯商业新闻 (Forbes)", "https://www.forbes.com/", "Forbes"),
+		page("news-economist", "经济学人杂志 (The Economist)", "https://www.economist.com/", "Economist"),
+		page("news-time", "时代周刊 (Time)", "https://time.com/", "TIME"),
+		page("news-washingtonpost", "华盛顿邮报 (Washington Post)", "https://www.washingtonpost.com/", "Washington Post"),
+		page("news-nbc", "美国全国广播公司新闻 (NBC News)", "https://www.nbcnews.com/", "NBC News"),
+		page("news-abc", "美国广播公司新闻 (ABC News)", "https://abcnews.go.com/", "ABC News"),
+		page("news-fox", "福克斯新闻网 (Fox News)", "https://www.foxnews.com/", "Fox News"),
+		page("news-guardian", "英国卫报 (The Guardian)", "https://www.theguardian.com/", "Guardian"),
+		page("news-dailymail", "英国每日邮报 (Daily Mail)", "https://www.dailymail.co.uk/", "Daily Mail", "Mail Online"),
+		page("news-spiegel", "德国明镜周刊 (Spiegel)", "https://www.spiegel.de/", "SPIEGEL"),
+		page("news-bild", "德国图片报 (Bild)", "https://www.bild.de/", "BILD"),
+		page("news-lemonde", "法国世界报 (Le Monde)", "https://www.lemonde.fr/", "Le Monde"),
+		page("news-lefigaro", "法国费加罗报 (Le Figaro)", "https://www.lefigaro.fr/", "Le Figaro"),
+		page("news-elpais", "西班牙国家报 (El País)", "https://elpais.com/", "EL PAÍS", "EL PAIS"),
+		page("news-cna", "新加坡亚洲新闻台 (CNA)", "https://www.channelnewsasia.com/", "CNA", "Channel NewsAsia"),
+		page("news-straitstimes", "新加坡海峡时报 (The Straits Times)", "https://www.straitstimes.com/", "Straits Times"),
+	}},
+}
