@@ -61,6 +61,35 @@ func TestRegistryIntegrity(t *testing.T) {
 	}
 }
 
+func TestFullRegistryIntegrity(t *testing.T) {
+	probes := Full()
+	if len(probes) != 522 {
+		t.Fatalf("full checklist item count = %d, want 522", len(probes))
+	}
+	seen := make(map[string]bool, len(probes))
+	for i, probe := range probes {
+		if strings.TrimSpace(probe.ID) == "" || seen[probe.ID] {
+			t.Fatalf("duplicate or empty full ID at %d: %q", i, probe.ID)
+		}
+		seen[probe.ID] = true
+		if strings.TrimSpace(probe.Name) == "" || strings.TrimSpace(probe.Category) == "" {
+			t.Fatalf("missing full label at %d: %#v", i, probe)
+		}
+		if i < 198 && probe.URL != "" {
+			t.Fatalf("pre-web item %q unexpectedly has URL %q", probe.ID, probe.URL)
+		}
+	}
+	if probes[0].Name != "本机系统时间 (协调世界时 / 北京时间)" {
+		t.Fatalf("full registry does not start with chapter 1: %q", probes[0].Name)
+	}
+	if probes[198].Name != All()[0].Name {
+		t.Fatalf("chapter 12 does not follow the 198 pre-web items")
+	}
+	if probes[len(probes)-1].Name != "全网综合风险等级评定与原路退款判定标准" {
+		t.Fatalf("full registry does not end with chapter 13")
+	}
+}
+
 func TestDefaultSubset(t *testing.T) {
 	all := make(map[string]Probe)
 	for _, probe := range All() {

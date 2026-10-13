@@ -53,6 +53,9 @@ type Result struct {
 	Title       string        `json:"title,omitempty"`
 	BodySnippet string        `json:"body_snippet,omitempty"`
 	Evidence    string        `json:"evidence,omitempty"`
+	Capability  string        `json:"capability,omitempty"`
+	Check       string        `json:"check,omitempty"`
+	Reason      string        `json:"reason,omitempty"`
 	Error       string        `json:"error,omitempty"`
 	Latency     time.Duration `json:"-"`
 	LatencyMS   int64         `json:"latency_ms,omitempty"`
@@ -76,13 +79,30 @@ type ExitIPResult struct {
 var titleRE = regexp.MustCompile(`(?is)<title\b[^>]*>(.*?)</title\s*>`)
 var tagRE = regexp.MustCompile(`(?is)<[^>]+>`)
 
-// RunAll executes configured probes concurrently, preserving catalog order.
-// Unconfigured probes are returned as StatusUntested and are never requested.
+type exitIPContextKey struct{}
+
+// WithExitIP supplies the already observed public IPv4 to native checks such
+// as DNSBL. It avoids making a second exit-IP request for every blacklist.
+func WithExitIP(ctx context.Context, ip string) context.Context {
+	return context.WithValue(ctx, exitIPContextKey{}, strings.TrimSpace(ip))
+}
+
+func exitIPFromContext(ctx context.Context) string {
+	value, _ := ctx.Value(exitIPContextKey{}).(string)
+	return value
+}
+
+// RunAll executes webpage and native probes concurrently, preserving catalog
+// order. Items without a safe implementation remain StatusUntested with their
+// catalogue reason and are never requested.
 func RunAll(ctx context.Context, client *http.Client, probes []catalog.Probe, workers int) []Result {
 	if workers < 1 {
 		workers = 1
 	}
 	results := make([]Result, len(probes))
+	if len(probes) == 0 {
+		return results
+	}
 	jobs := make(chan int)
 	var wg sync.WaitGroup
 	if workers > len(probes) {
@@ -94,12 +114,20 @@ func RunAll(ctx context.Context, client *http.Client, probes []catalog.Probe, wo
 			defer wg.Done()
 			for idx := range jobs {
 				p := probes[idx]
-				if strings.TrimSpace(p.URL) == "" {
-					results[idx] = Result{ID: p.ID, Name: p.Name, Category: p.Category, URL: p.URL, Status: StatusUntested, Evidence: "未配置测试网址", Configured: false}
-					continue
-				}
 				if ctx.Err() != nil {
 					results[idx] = fromProbe(p, StatusUntested, "时间预算已到，未执行")
+					continue
+				}
+				if strings.TrimSpace(p.URL) == "" {
+					if nativeProbe(p) {
+						results[idx] = RunLocal(ctx, p)
+					} else {
+						reason := p.Reason
+						if reason == "" {
+							reason = "未配置测试网址"
+						}
+						results[idx] = fromProbe(p, StatusUntested, reason)
+					}
 					continue
 				}
 				results[idx] = RunOne(ctx, client, p)
@@ -114,8 +142,17 @@ func RunAll(ctx context.Context, client *http.Client, probes []catalog.Probe, wo
 	return results
 }
 
+func nativeProbe(p catalog.Probe) bool {
+	if p.Capability == "local" || p.Capability == "protocol" || p.Capability == "derived" || p.Capability == "dnsbl" {
+		return true
+	}
+	// Port and performance rows use the same safe, read-only local network
+	// checks even though their catalogue capability is "network".
+	return strings.Contains(p.Category, "主要网络端口") || strings.Contains(p.Category, "真实网络连接性能")
+}
+
 func fromProbe(p catalog.Probe, status Status, evidence string) Result {
-	return Result{ID: p.ID, Name: p.Name, Category: p.Category, URL: p.URL, Status: status, Evidence: evidence, Configured: p.URL != ""}
+	return Result{ID: p.ID, Name: p.Name, Category: p.Category, URL: p.URL, Status: status, Evidence: evidence, Reason: p.Reason, Capability: p.Capability, Check: p.Check, Configured: p.URL != "" || p.Capability == "local" || p.Capability == "protocol" || p.Capability == "derived"}
 }
 
 // RunOne performs one safe GET request and reads at most MaxBodyBytes.

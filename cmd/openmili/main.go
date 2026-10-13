@@ -54,7 +54,7 @@ func run(args []string, out, errOut io.Writer) int {
 	fs.SetOutput(errOut)
 	var opt options
 	fs.StringVar(&opt.proxy, "proxy", "", "前置代理，例如 socks5://127.0.0.1:10808 或 http://127.0.0.1:10808")
-	fs.BoolVar(&opt.full, "full", false, "执行全部已配置网页探针（默认 15 秒预算）")
+	fs.BoolVar(&opt.full, "full", false, "执行大纲全部探测项：网页、本机与协议（默认 15 秒预算）")
 	fs.BoolVar(&opt.noColor, "no-color", false, "禁用 ANSI 颜色")
 	fs.StringVar(&opt.timeoutRaw, "timeout", "5s", "单个请求超时，例如 5s 或 5（秒）")
 	fs.IntVar(&opt.width, "width", 80, "双列终端宽度，只支持 80 或 100")
@@ -91,7 +91,7 @@ func run(args []string, out, errOut io.Writer) int {
 	mode := "default"
 	budget := timeout
 	if opt.full {
-		selected = catalog.All()
+		selected = catalog.Full()
 		mode = "full"
 		budget = 15 * time.Second
 	}
@@ -99,6 +99,7 @@ func run(args []string, out, errOut io.Writer) int {
 	// The same budget covers both exit-IP checks and webpage probes, so a
 	// stalled exit service cannot silently extend the advertised runtime.
 	exitBefore := checkExit(ctx, client, timeout)
+	ctx = probe.WithExitIP(ctx, exitBefore.IP)
 	results := probe.RunAll(ctx, client, selected, 64)
 	exitAfter := checkExit(ctx, client, timeout)
 	cancel()
@@ -118,7 +119,7 @@ func run(args []string, out, errOut io.Writer) int {
 			Version: "0.1.0", Mode: mode, Proxy: pathDescription,
 			TimeoutMS: timeout.Milliseconds(), BudgetMS: budget.Milliseconds(),
 			ExitBefore: exitBefore, ExitAfter: exitAfter, ExitChanged: exitChanged,
-			TotalCatalog: len(catalog.All()), TotalSelected: len(selected), Configured: configured, NotTested: untested,
+			TotalCatalog: len(catalog.Full()), TotalSelected: len(selected), Configured: configured, NotTested: untested,
 			Results: results, GeneratedAt: time.Now().UTC(),
 		})
 	}
@@ -177,14 +178,14 @@ func buildReport(mode, path string, timeout, budget time.Duration, before, after
 	}
 	configuredCatalog := 0
 	for _, p := range selected {
-		if p.URL != "" {
+		if p.URL != "" || p.Capability != "" {
 			configuredCatalog++
 		}
 	}
 	summary := []string{
 		fmt.Sprintf("访问模式：%s；路径：%s", modeLabel(mode), path),
-		fmt.Sprintf("请求超时：%s；本次预算：%s；网页探针：%d（已配置 %d，未配置/未测试 %d）", timeout, budget, len(selected), configured, untested),
-		fmt.Sprintf("清单总数：%d；当前模式可请求网址：%d", len(catalog.All()), configuredCatalog),
+		fmt.Sprintf("请求超时：%s；本次预算：%s；本次探测项：%d（可执行 %d，未测试 %d）", timeout, budget, len(selected), configured, untested),
+		fmt.Sprintf("大纲清单总数：%d；当前模式已登记：%d（网页、本机、协议、数据库）", len(catalog.Full()), configuredCatalog),
 	}
 	if before.IP != "" {
 		summary = append(summary, fmt.Sprintf("开始出口 IPv%s：%s", ipFamily(before.IP), before.IP))
@@ -227,6 +228,7 @@ func buildReport(mode, path string, timeout, budget time.Duration, before, after
 	}
 	footer := []string{
 		"证据说明：网页状态只依据本次响应的状态码、标题和有限正文片段；数据库属性不参与实时网页结论。",
+		"全量模式会保留大纲中的本机、协议、数据库和审计项；未测试项会在 JSON 的 reason 字段说明所需测点或权限。",
 		"安全边界：仅执行普通 GET 和重定向跟随；不登录、不提交表单、不绕过验证码、不执行真实播放。",
 	}
 	return terminal.Report{Title: "OpenMili 出口 IP 实际使用体检", Summary: summary, Sections: sections, Footer: footer}
@@ -234,7 +236,7 @@ func buildReport(mode, path string, timeout, budget time.Duration, before, after
 
 func modeLabel(mode string) string {
 	if mode == "full" {
-		return "全量网页实测"
+		return "全量清单实测"
 	}
 	return "默认重点网页实测"
 }
@@ -258,7 +260,7 @@ func exitReason(result probe.ExitIPResult) string {
 
 func toCell(result probe.Result) terminal.Cell {
 	detail := "--"
-	if result.Started {
+	if result.Started && result.Status != probe.StatusUntested {
 		detail = fmt.Sprintf("%d ms", result.LatencyMS)
 	}
 	return terminal.Cell{Name: result.Name, Status: string(result.Status), Detail: detail, Tone: tone(result.Status)}

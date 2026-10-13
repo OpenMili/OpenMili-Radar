@@ -12,6 +12,16 @@ type Probe struct {
 	URL           string   `json:"url"`
 	ExpectedTitle []string `json:"expected_title,omitempty"`
 	Default       bool     `json:"default"`
+	// Capability identifies how an item can be measured. Webpage entries leave
+	// this empty; non-web entries use local, protocol, database, dnsbl,
+	// network, derived or manual. It is deliberately descriptive so reports
+	// can show why an item was skipped without treating it as a web result.
+	Capability string `json:"capability,omitempty"`
+	// Check is a stable machine-readable key for a local/protocol check.
+	Check string `json:"check,omitempty"`
+	// Reason records the catalogue limitation or planned implementation. Native
+	// probe results may clear it when the current machine supplies evidence.
+	Reason string `json:"reason,omitempty"`
 }
 
 type group struct {
